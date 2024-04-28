@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                // "${workspaceFolder}/**"
+                "${workspaceFolder}/DisplayNode/zephyr/include",
+                "${workspaceFolder}/DisplayNode/build/zephyr/include/generated/",
+                "${workspaceFolder}/DisplayNode/modules/fs/fatfs/include/"
+            ],
+            "defines": [
+                "ARCH_STACK_PTR_ALIGN",
+                "CONFIG_SYS_CLOCK_TICKS_PER_SEC"
+            ],
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
