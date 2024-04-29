@@ -1,0 +1,9 @@
+{
+    "cortex-debug.openocdPath": "${userHome}/zephyr_install/zephyr-sdk-0.16.5/sysroots/x86_64-pokysdk-linux/usr/bin/openocd",
+    "cortex-debug.armToolchainPath": "${userHome}/zephyr_install/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/",
+    "cortex-debug.gdbPath": "${userHome}/zephyr_install/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+    "cortex-debug.objdumpPath": "${userHome}/zephyr_install/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/arm-zephyr-eabi-objdump",
+    "C_Cpp.default.compilerPath": "/home/firefish/zephyr_install/zephyr-sdk-0.16.5/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc",
+    "esbonio.sphinx.confDir": "",
+    "cortex-debug.variableUseNaturalFormat": true,
+}
