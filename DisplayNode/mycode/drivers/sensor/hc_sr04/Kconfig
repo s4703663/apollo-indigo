@@ -1,0 +1,8 @@
+
+config HC_SR04
+    bool "HC-SR04 Ultrasonic Ranging Module"
+    default y
+    depends on DT_HAS_ELECFREAKS_HC_SR04_ENABLED
+    select GPIO
+    help
+      Enable HC-SR04 Ultrasonic Ranging Module
