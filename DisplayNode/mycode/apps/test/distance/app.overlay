@@ -1,0 +1,8 @@
+/ {
+    us0: hc-sr04 {
+        compatible = "elecfreaks,hc-sr04";
+        trig-gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;
+        echo-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+        status = "okay";
+    };
+};
