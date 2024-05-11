@@ -1,21 +1,41 @@
 {
     "version": "0.2.0",
     "configurations": [
+        // {
+        //     "name": "Lunch Nucleo",
+        //     "type": "cortex-debug",
+        //     "request": "launch",
+        //     "servertype": "openocd",
+        //     "cwd": "${workspaceRoot}",
+        //     "executable": "${workspaceRoot}/build/zephyr/zephyr.elf",
+        //     "device": "STM32L496",
+        //     "interface": "swd",
+        //     "runToEntryPoint": "main",
+        //     "configFiles": [
+        //         // "${workspaceRoot}/zephyr/boards/arm/nucleo_l496zg/support/openocd.cfg"
+        //         "${workspaceRoot}/zephyr/boards/st/nucleo_l496zg/support/openocd.cfg"
+        //         // "${userHome}/zephyr_install/zephyr-sdk-0.16.5/sysroots/x86_64-pokysdk-linux/usr/share/openocd/scripts/board/st_nucleo_l4.cfg"
+        //     ]
+        // },
         {
-            "name": "Lunch Nucleo",
-            "type": "cortex-debug",
+            "name": "Launch M5Core2",
+            "type": "cppdbg",
             "request": "launch",
-            "servertype": "openocd",
-            "cwd": "${workspaceRoot}",
-            "executable": "${workspaceRoot}/build/zephyr/zephyr.elf",
-            "device": "STM32L496",
-            "interface": "swd",
-            "runToEntryPoint": "main",
-            "configFiles": [
-                // "${workspaceRoot}/zephyr/boards/arm/nucleo_l496zg/support/openocd.cfg"
-                "${workspaceRoot}/zephyr/boards/st/nucleo_l496zg/support/openocd.cfg"
-                // "${userHome}/zephyr_install/zephyr-sdk-0.16.5/sysroots/x86_64-pokysdk-linux/usr/share/openocd/scripts/board/st_nucleo_l4.cfg"
-            ]
-        },
+            "MIMode": "gdb",
+            "miDebuggerPath": "${userHome}/zephyr_install/zephyr-sdk-0.16.5/xtensa-espressif_esp32_zephyr-elf/bin/xtensa-espressif_esp32_zephyr-elf-gdb",
+            "program": "${workspaceRoot}/DisplayNode/mycode/build/zephyr/zephyr.elf",
+            "cwd": "${workspaceRoot}/DisplayNode",
+            "setupCommands": [
+                { "text": "target remote :3333" },
+                { "text": "set remote hardware-watchpoint-limit 2"},
+                { "text": "mon reset halt" },
+                { "text": "thb app_main" },
+                { "text": "flushregs" }
+              ],
+              "externalConsole": false,
+              "logging": {
+                "engineLogging": true
+              }
+        }
     ]
 }

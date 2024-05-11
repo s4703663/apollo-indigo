@@ -17,16 +17,17 @@ manifest:
       revision: v3.6.0
       import:
         name-allowlist:
-          # - cmsis
-          # - hal_nordic
+          - cmsis
+          - hal_nordic
           # - hal_stm32
-          # - mbedtls
+          - mbedtls
           # - mcuboot
           # - mcumgr
-          # - segger
+          - segger
           # - tinycbor
-          # - tinycrypt
+          - tinycrypt
           - hal_espressif
+          - hal_xtensa
 
   # self:
   #   path: sXXXXXXXX
