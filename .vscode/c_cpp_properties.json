@@ -9,8 +9,8 @@
                 // "${workspaceFolder}/DisplayNode/modules/fs/fatfs/include/"
             ],
             "defines": [
-                // "ARCH_STACK_PTR_ALIGN",
-                // "CONFIG_SYS_CLOCK_TICKS_PER_SEC"
+                "ARCH_STACK_PTR_ALIGN",
+                "CONFIG_SYS_CLOCK_TICKS_PER_SEC",
                 "CONFIG_MQTT_BROKER_ADDRESS=\"somestring\"",
                 "CONFIG_MQTT_CLIENT_ID=\"somestring\"",
                 "CONFIG_WIFI_SSID=\"somestring\"",

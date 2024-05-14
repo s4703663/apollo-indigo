@@ -1,7 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/net/mqtt.h>
-// #include <zephyr/random/random.h>
+#include <zephyr/random/random.h>
 #include <zephyr/net/wifi_mgmt.h>
 
 #include <zephyr/logging/log.h>
@@ -13,6 +13,15 @@ LOG_MODULE_REGISTER(mqtt_messenger, LOG_LEVEL_DBG);
 #define APP_MQTT_BUFFER_SIZE 128
 #define APP_CONNECT_TIMEOUT_MS 2000
 #define APP_SLEEP_MSECS 500
+
+#define HEARTBEAT_THREAD_STACK_SIZE 2048
+#define HEARTBEAT_THREAD_PRIORITY 4
+#define HEARTBEAT_SLEEP_SEC 15
+
+#define RECEIVE_THREAD_STACK_SIZE 2048
+#define RECEIVE_THREAD_PRIORITY 5
+#define RECEIVE_POLL_TIMEOUT_MS 1000
+
 
 #define RC_STR(rc) ((rc) == 0 ? "OK" : "ERROR")
 #define PRINT_RESULT(func, rc) LOG_INF("%s: %d <%s>", (func), rc, RC_STR(rc))
@@ -27,13 +36,82 @@ static struct sockaddr_storage broker;
 static uint8_t rx_buffer[APP_MQTT_BUFFER_SIZE];
 static uint8_t tx_buffer[APP_MQTT_BUFFER_SIZE];
 
+// Buffer for application:
+static char payload_buffer[APP_MQTT_BUFFER_SIZE];
+
 static volatile bool connected;
 
-static struct zsock_pollfd fds[1];
-static int nfds;
+static struct zsock_pollfd fds[1] = {};
+static int nfds = 0;
 
 // For wifi connection callback
 struct net_mgmt_event_callback wifi_cb;
+
+// Periodically send MQTT heartbeat
+static void mqtt_heartbeat_thread(void *, void *, void *);
+static void mqtt_receive_thread(void *, void *, void *);
+
+K_THREAD_DEFINE(mqtt_heartbeat_tid, HEARTBEAT_THREAD_STACK_SIZE, mqtt_heartbeat_thread, NULL, NULL, NULL,
+        HEARTBEAT_THREAD_PRIORITY, 0, 0);
+
+K_THREAD_DEFINE(mqtt_receive_tid, RECEIVE_THREAD_STACK_SIZE, mqtt_receive_thread, NULL, NULL, NULL,
+        RECEIVE_THREAD_PRIORITY, 0, 0);
+
+// static int wait(int timeout)
+// {
+//     int ret = 0;
+
+//     if (nfds > 0) {
+//         ret = zsock_poll(fds, nfds, timeout);
+//         if (ret < 0) {
+//             LOG_ERR("poll error: %d", errno);
+//         }
+//     }
+
+//     return ret;
+// }
+
+static void mqtt_heartbeat_thread(void *, void *, void *)
+{
+    int ret;
+
+    for (;;) {
+        if (connected) {
+            ret = mqtt_live(&client);
+            if (ret != 0 && ret != -EAGAIN) {
+                PRINT_RESULT("mqtt_live", ret);
+                // return ret;
+            }
+        }
+        k_sleep(K_SECONDS(HEARTBEAT_SLEEP_SEC));
+    }
+}
+
+static void mqtt_receive_thread(void *, void *, void *)
+{
+    int ret;
+    
+    for (;;) {
+        if (connected) {
+            // negative timeout means wait forever
+            // Returns -1 on error, or no. of events occurred
+            ret = zsock_poll(fds, nfds, RECEIVE_POLL_TIMEOUT_MS);
+            if (ret < 0) {
+                LOG_ERR("poll error: %d", errno);
+                // return ret;
+            } else if (ret == 0) {
+                continue;
+            }
+            ret = mqtt_input(&client);
+            if (ret != 0) {
+                PRINT_RESULT("mqtt_input", ret);
+                // return ret;
+            }
+        } else {
+            k_msleep(RECEIVE_POLL_TIMEOUT_MS);
+        }
+    }
+}
 
 static void prepare_fds(void)
 {
@@ -44,7 +122,7 @@ static void prepare_fds(void)
 
 static void clear_fds(void)
 {
-	nfds = 0;
+    nfds = 0;
 }
 
 static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt_evt *evt)
@@ -61,6 +139,21 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
         connected = true;
         LOG_INF("MQTT client connected!");
 
+        // subscrite to topics here
+        struct mqtt_topic topic = {
+            .topic = {
+                .utf8 = "test_topic",
+                .size = strlen("test_topic")
+            },
+            .qos = MQTT_QOS_2_EXACTLY_ONCE
+        };
+        struct mqtt_subscription_list subscription_list = {
+            .list = &topic,
+            .list_count = 1,
+            .message_id = sys_rand32_get()
+        };
+        mqtt_subscribe(client, &subscription_list);
+
         break;
 
     case MQTT_EVT_DISCONNECT:
@@ -69,6 +162,21 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
         connected = false;
         clear_fds();
 
+        break;
+
+    case MQTT_EVT_PUBLISH:
+        if (evt->result != 0) {
+            LOG_ERR("MQTT PUBLISH error %d", evt->result);
+            break;
+        }
+
+        LOG_INF("MQTT PUBLISH packet id: %u", evt->param.publish.message_id);
+
+        mqtt_read_publish_payload(client, payload_buffer, sizeof(payload_buffer));
+        
+        LOG_INF("Received message from topic %s:\n%s\n", evt->param.publish.message.topic.topic.utf8,
+                payload_buffer);
+        
         break;
 
     case MQTT_EVT_PUBACK:
