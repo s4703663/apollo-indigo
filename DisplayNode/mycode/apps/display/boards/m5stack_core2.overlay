@@ -1,3 +1,7 @@
 &wifi {
 	status = "okay";
 };
+
+&psram0 {
+	status = "okay";
+};

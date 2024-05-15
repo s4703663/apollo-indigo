@@ -99,8 +99,8 @@ static void mqtt_receive_thread(void *, void *, void *)
             if (ret < 0) {
                 LOG_ERR("poll error: %d", errno);
                 // return ret;
-            } else if (ret == 0) {
-                continue;
+            // } else if (ret == 0) {
+            //     continue;
             }
             ret = mqtt_input(&client);
             if (ret != 0) {
