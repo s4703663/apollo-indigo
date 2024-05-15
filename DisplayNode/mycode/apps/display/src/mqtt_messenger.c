@@ -1,3 +1,4 @@
+#include <stdalign.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/net/mqtt.h>
@@ -57,6 +58,13 @@ K_THREAD_DEFINE(mqtt_heartbeat_tid, HEARTBEAT_THREAD_STACK_SIZE, mqtt_heartbeat_
 K_THREAD_DEFINE(mqtt_receive_tid, RECEIVE_THREAD_STACK_SIZE, mqtt_receive_thread, NULL, NULL, NULL,
         RECEIVE_THREAD_PRIORITY, 0, 0);
 
+// Queue for incoming messages
+K_MSGQ_DEFINE(receive_msgq, sizeof(struct Message), 4, alignof(struct Message));
+// Queue for outgoing messages
+K_MSGQ_DEFINE(send_msgq, sizeof(struct Message), 4, alignof(struct Message));
+
+K_SEM_DEFINE(connected_sem, 0, 1);
+
 // static int wait(int timeout)
 // {
 //     int ret = 0;
@@ -107,6 +115,12 @@ static void mqtt_receive_thread(void *, void *, void *)
                 PRINT_RESULT("mqtt_input", ret);
                 // return ret;
             }
+            // ret = mqtt_input(&client);
+            // if (ret != 0) {
+            //     PRINT_RESULT("mqtt_input", ret);
+            //     // return ret;
+            // }
+            // k_msleep(10);
         } else {
             k_msleep(RECEIVE_POLL_TIMEOUT_MS);
         }
@@ -138,21 +152,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
 
         connected = true;
         LOG_INF("MQTT client connected!");
-
-        // subscrite to topics here
-        struct mqtt_topic topic = {
-            .topic = {
-                .utf8 = "test_topic",
-                .size = strlen("test_topic")
-            },
-            .qos = MQTT_QOS_2_EXACTLY_ONCE
-        };
-        struct mqtt_subscription_list subscription_list = {
-            .list = &topic,
-            .list_count = 1,
-            .message_id = sys_rand32_get()
-        };
-        mqtt_subscribe(client, &subscription_list);
+        k_sem_give(&connected_sem);
 
         break;
 
@@ -172,10 +172,52 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
 
         LOG_INF("MQTT PUBLISH packet id: %u", evt->param.publish.message_id);
 
-        mqtt_read_publish_payload(client, payload_buffer, sizeof(payload_buffer));
+        if (evt->param.publish.message.topic.qos == MQTT_QOS_1_AT_LEAST_ONCE) {
+            struct mqtt_puback_param puback_param = {
+                .message_id = evt->param.publish.message_id
+            };
+            err = mqtt_publish_qos1_ack(client, &puback_param);
+            if (err != 0) {
+                LOG_ERR("Failed to send MQTT PUBACK: %d", err);
+            }
+        } else if (evt->param.publish.message.topic.qos == MQTT_QOS_2_EXACTLY_ONCE) {
+            struct mqtt_pubrec_param pubrec_param = {
+                .message_id = evt->param.publish.message_id
+            };
+            err = mqtt_publish_qos2_receive(client, &pubrec_param);
+            if (err != 0) {
+                LOG_ERR("Failed to send MQTT PUBREC: %d", err);
+            }
+        }
+
+        // evt->param.publish.message.payload.len
+        size_t topic_size = evt->param.publish.message.topic.topic.size;
+        size_t payload_size = evt->param.publish.message.payload.len;
         
-        LOG_INF("Received message from topic %s:\n%s\n", evt->param.publish.message.topic.topic.utf8,
-                payload_buffer);
+        struct Message message = {
+            .topic = k_malloc(topic_size + 1),
+            .buffer = k_malloc(payload_size),
+            .size = payload_size
+        };
+
+        memcpy(message.topic, evt->param.publish.message.topic.topic.utf8, topic_size);
+        message.topic[topic_size] = '\0';
+
+        err = mqtt_read_publish_payload(client, message.buffer, payload_size);
+        if (err < 0) {
+            LOG_ERR("Failed to read publish payload: %d", err);
+        }
+
+        err = k_msgq_put(&receive_msgq, &message, K_NO_WAIT);
+        if (err != 0) {
+            k_free(message.topic);
+            k_free(message.buffer);
+            LOG_ERR("Failed to add received MQTT message to queue");
+            break;
+        }
+        
+        // LOG_INF("Received message from topic %s:\n%s\n", evt->param.publish.message.topic.topic.utf8,
+        //         payload_buffer);
         
         break;
 
@@ -208,6 +250,25 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
 
         break;
 
+    case MQTT_EVT_PUBREL:
+        if (evt->result != 0) {
+            LOG_ERR("MQTT PUBREL error %d", evt->result);
+            break;
+        }
+
+        LOG_INF("PUBREL packet id: %u", evt->param.pubrel.message_id);
+
+        const struct mqtt_pubcomp_param comp_param = {
+            .message_id = evt->param.pubrel.message_id
+        };
+
+        err = mqtt_publish_qos2_complete(client, &comp_param);
+        if (err != 0) {
+            LOG_ERR("Failed to send MQTT PUBCOMP: %d", err);
+        }
+
+        break;
+
     case MQTT_EVT_PUBCOMP:
         if (evt->result != 0) {
             LOG_ERR("MQTT PUBCOMP error %d", evt->result);
@@ -216,6 +277,26 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
 
         LOG_INF("PUBCOMP packet id: %u",
             evt->param.pubcomp.message_id);
+
+        break;
+
+    case MQTT_EVT_SUBACK:
+        if (evt->result != 0) {
+            LOG_ERR("MQTT SUBACK error %d", evt->result);
+            break;
+        }
+
+        LOG_INF("SUBACK packet id: %u", evt->param.suback.message_id);
+
+        break;
+
+    case MQTT_EVT_UNSUBACK:
+        if (evt->result != 0) {
+            LOG_ERR("MQTT UNSUBACK error %d", evt->result);
+            break;
+        }
+
+        LOG_INF("UNSUBACK packet id: %u", evt->param.unsuback.message_id);
 
         break;
 
@@ -359,5 +440,82 @@ int mqtt_messenger_init(void)
     // net_mgmt_init_event_callback(&wifi_cb, wifi_connect_cb, NET_EVENT_WIFI_CMD_CONNECT_RESULT);
     net_mgmt_add_event_callback(&wifi_cb);
 
+    for (;;) {
+        int ret = k_sem_take(&connected_sem, K_MSEC(2000));
+        if (ret == 0) {
+            break;
+        }
+        LOG_INF("MQTT Connecting...");
+    }
+
+    LOG_INF("MQTT Connected.");
+
     return 0;
+}
+
+int mqtt_messenger_subscribe(char **topics, size_t topics_count)
+{
+    // // subscrite to topics here
+    // struct mqtt_topic topic = {
+    //     .topic = {
+    //         .utf8 = "test_topic",
+    //         .size = strlen("test_topic")
+    //     },
+    //     .qos = MQTT_QOS_2_EXACTLY_ONCE
+    // };
+    // struct mqtt_subscription_list subscription_list = {
+    //     .list = &topic,
+    //     .list_count = 1,
+    //     .message_id = sys_rand32_get()
+    // };
+    // mqtt_subscribe(client, &subscription_list);
+
+    struct mqtt_topic mqtt_topics[topics_count];
+
+    for (size_t i = 0; i < topics_count; ++i) {
+        mqtt_topics[i] = (struct mqtt_topic) {
+            .topic = {
+                .utf8 = (uint8_t *) topics[i], // no need to copy string
+                .size = strlen(topics[i])
+            },
+            .qos = MQTT_QOS_2_EXACTLY_ONCE
+        };
+    }
+    struct mqtt_subscription_list subscription_list = {
+        .list = mqtt_topics,
+        .list_count = topics_count,
+        .message_id = sys_rand32_get()
+    };
+
+    return mqtt_subscribe(&client, &subscription_list);
+}
+
+int mqtt_messenger_receive(struct Message *message, k_timeout_t timeout)
+{
+    return k_msgq_get(&receive_msgq, message, timeout);
+}
+
+int mqtt_messenger_send(const struct Message *message)
+{
+    // return k_msgq_put(&send_msgq, message, timeout);
+    struct mqtt_publish_param param = {
+        .message = {
+            .topic = {
+                .qos = MQTT_QOS_2_EXACTLY_ONCE,
+                .topic = {
+                    .utf8 = (uint8_t *) message->topic,
+                    .size = strlen(message->topic)
+                }
+            },
+            .payload = {
+                .data = message->buffer,
+                .len = message->size
+            }
+        },
+        .message_id = sys_rand32_get(),
+        .dup_flag = 0U,
+        .retain_flag = 0U
+    };
+
+    return mqtt_publish(&client, &param);
 }
