@@ -5,7 +5,9 @@
             "includePath": [
                 // "${workspaceFolder}/**"
                 "${workspaceFolder}/DisplayNode/zephyr/include",
-                "${workspaceFolder}/DisplayNode/mycode/build/zephyr/include/generated/"
+                "${workspaceFolder}/DisplayNode/mycode/build/zephyr/include/generated/",
+                "${workspaceFolder}/DisplayNode/modules/lib/gui/lvgl/",
+                "${workspaceFolder}/DisplayNode/zephyr/modules/lvgl/include/"
                 // "${workspaceFolder}/DisplayNode/modules/fs/fatfs/include/"
             ],
             "defines": [

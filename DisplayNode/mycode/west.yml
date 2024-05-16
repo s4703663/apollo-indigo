@@ -28,6 +28,7 @@ manifest:
           - tinycrypt
           - hal_espressif
           - hal_xtensa
+          - lvgl
 
   # self:
   #   path: sXXXXXXXX

@@ -78,10 +78,12 @@ int message_handler_receive(struct Msg *msg, k_timeout_t timeout)
             return 1;
         }
         msg->data.mode_topic_data.display_mode = *p;
+        k_free(message.buffer);
         break;
     case MQTT_MSG_HEARBEAT_TOPIC:
         data = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3] << 0;
         msg->data.heartbeat_topic_data.tick_num = data;
+        k_free(message.buffer);
         break;
     case MQTT_MSG_IMG_TOPIC:
         msg->data.image_topic_data.buffer = message.buffer;
@@ -94,6 +96,8 @@ int message_handler_receive(struct Msg *msg, k_timeout_t timeout)
         LOG_ERR("Received MQTT message with unknown topic: %s", message.topic);
         return 1;
     }
+
+    k_free(message.topic);
 
     return 0;
 }
