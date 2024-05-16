@@ -5,11 +5,11 @@ if WIFI
 config WIFI_SSID
 	string "WIFI SSID - Network name"
 	help
-       SSID of Wifi network to connect to.
+          SSID of Wifi network to connect to.
 config WIFI_PSK
 	string "WIFI PSK - Network password key"
 	help
-       Password for Wifi network to connect to.
+          Password for Wifi network to connect to.
 endif
 
 config MQTT_BROKER_ADDRESS
@@ -21,5 +21,11 @@ config MQTT_CLIENT_ID
     string "MQTT client ID"
     help
        Name of MQTT client.
+
+config DISPLAY_DEVICE_NUMBER
+    int "Which display device is this"
+    help
+      The display number starts from 1 in the top left, 2 in the top middle,
+      3 in the top right, etc. until 9 in the bottom right.
 
 source "Kconfig.zephyr"

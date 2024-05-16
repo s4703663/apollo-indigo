@@ -14,7 +14,8 @@
                 "CONFIG_MQTT_BROKER_ADDRESS=\"somestring\"",
                 "CONFIG_MQTT_CLIENT_ID=\"somestring\"",
                 "CONFIG_WIFI_SSID=\"somestring\"",
-                "CONFIG_WIFI_PSK=\"somestring\""
+                "CONFIG_WIFI_PSK=\"somestring\"",
+                "CONFIG_DISPLAY_DEVICE_NUMBER=1"
             ],
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x86"

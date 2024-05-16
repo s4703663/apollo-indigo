@@ -11,7 +11,10 @@ LOG_MODULE_REGISTER(mqtt_messenger, LOG_LEVEL_DBG);
 #include "mqtt_messenger.h"
 
 #define SERVER_PORT 1883
-#define APP_MQTT_BUFFER_SIZE 128
+#define MQTT_TX_BUFFER_SIZE 128
+// #define MQTT_RX_BUFFER_SIZE 262114 // 256 KB
+// #define MQTT_RX_BUFFER_SIZE 128 // 256 KB
+#define MQTT_RX_BUFFER_SIZE 16384 // 256 KB
 #define APP_CONNECT_TIMEOUT_MS 2000
 #define APP_SLEEP_MSECS 500
 
@@ -34,11 +37,16 @@ static struct mqtt_client client;
 static struct sockaddr_storage broker;
 
 // Buffers for MQTT client
-static uint8_t rx_buffer[APP_MQTT_BUFFER_SIZE];
-static uint8_t tx_buffer[APP_MQTT_BUFFER_SIZE];
+// static uint8_t rx_buffer[APP_MQTT_BUFFER_SIZE];
+// static uint8_t tx_buffer[APP_MQTT_BUFFER_SIZE];
+static uint8_t rx_buffer[MQTT_RX_BUFFER_SIZE];
+static uint8_t tx_buffer[MQTT_TX_BUFFER_SIZE];
+
+// static uint8_t *rx_buffer = NULL;
+// static uint8_t *tx_buffer = NULL;
 
 // Buffer for application:
-static char payload_buffer[APP_MQTT_BUFFER_SIZE];
+// static char payload_buffer[APP_MQTT_BUFFER_SIZE];
 
 static volatile bool connected;
 
@@ -170,7 +178,38 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             break;
         }
 
-        LOG_INF("MQTT PUBLISH packet id: %u", evt->param.publish.message_id);
+        LOG_INF("PUBLISH packet id: %u", evt->param.publish.message_id);
+
+        // evt->param.publish.message.payload.len
+        size_t topic_size = evt->param.publish.message.topic.topic.size;
+        size_t payload_size = evt->param.publish.message.payload.len;
+
+        LOG_INF("PUBLISH payload length: %u", payload_size);
+        // printk("PUBLISH payload length: %u\n", payload_size);
+        
+        struct Message message = {
+            .topic = k_malloc(topic_size + 1),
+            .buffer = k_malloc(payload_size),
+            .size = payload_size
+        };
+
+        if (message.topic == NULL || message.buffer == NULL) {
+            LOG_ERR("Failed to allocate enough memory for published message");
+            k_free(message.topic);
+            k_free(message.buffer);
+            break;
+        }
+
+        memcpy(message.topic, evt->param.publish.message.topic.topic.utf8, topic_size);
+        message.topic[topic_size] = '\0';
+
+        err = mqtt_readall_publish_payload(client, message.buffer, payload_size);
+        if (err < 0) {
+            LOG_ERR("Failed to read publish payload: %d", err);
+        }
+
+        LOG_INF("PUBLISH payload read length: %u", err);
+        // printk("PUBLISH payload read length: %u\n", err);
 
         if (evt->param.publish.message.topic.qos == MQTT_QOS_1_AT_LEAST_ONCE) {
             struct mqtt_puback_param puback_param = {
@@ -188,24 +227,6 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             if (err != 0) {
                 LOG_ERR("Failed to send MQTT PUBREC: %d", err);
             }
-        }
-
-        // evt->param.publish.message.payload.len
-        size_t topic_size = evt->param.publish.message.topic.topic.size;
-        size_t payload_size = evt->param.publish.message.payload.len;
-        
-        struct Message message = {
-            .topic = k_malloc(topic_size + 1),
-            .buffer = k_malloc(payload_size),
-            .size = payload_size
-        };
-
-        memcpy(message.topic, evt->param.publish.message.topic.topic.utf8, topic_size);
-        message.topic[topic_size] = '\0';
-
-        err = mqtt_read_publish_payload(client, message.buffer, payload_size);
-        if (err < 0) {
-            LOG_ERR("Failed to read publish payload: %d", err);
         }
 
         err = k_msgq_put(&receive_msgq, &message, K_NO_WAIT);
@@ -348,9 +369,9 @@ static int client_init(void)
 
     // MQTT buffers configuration
     client.rx_buf = rx_buffer;
-    client.rx_buf_size = sizeof(rx_buffer);
+    client.rx_buf_size = MQTT_RX_BUFFER_SIZE; // sizeof(rx_buffer);
     client.tx_buf = tx_buffer;
-    client.tx_buf_size = sizeof(tx_buffer);
+    client.tx_buf_size = MQTT_TX_BUFFER_SIZE; // sizeof(tx_buffer);
 
     client.transport.type = MQTT_TRANSPORT_NON_SECURE;
 
@@ -416,6 +437,16 @@ static void wifi_connect_cb(struct net_mgmt_event_callback *cb, uint32_t mgmt_ev
 
 int mqtt_messenger_init(void)
 {
+    // rx_buffer = k_malloc(MQTT_RX_BUFFER_SIZE);
+    // if (rx_buffer == NULL) {
+    //     LOG_ERR("Failed to allocate enough space for RX buffer for MQTT");
+    //     return 1;
+    // }
+    // tx_buffer = k_malloc(MQTT_TX_BUFFER_SIZE);
+    // if (tx_buffer == NULL) {
+    //     LOG_ERR("Failed to allocate enough space for TX buffer for MQTT");
+    //     return 1;
+    // }
     // Connect to WiFi
     struct net_if *iface = net_if_get_default();
     struct wifi_connect_req_params params = {

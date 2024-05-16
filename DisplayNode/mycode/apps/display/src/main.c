@@ -1,9 +1,11 @@
 #include <stdalign.h>
+#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/app_memory/mem_domain.h>
 #include "mqtt_messenger.h"
 #include "screen_display.h"
+#include "message_handler.h"
 
 // K_MEM_PARTITION_DEFINE()
 
@@ -385,7 +387,9 @@ const uint8_t test_img[240][960] = {
 
 char *topics[] = {
     "DisplayN",
-    "TestTopic"
+    "TestTopic",
+    // "img1"
+    IMG_TOPIC
 };
 size_t topics_count = sizeof(topics) / sizeof(topics[0]);
 
@@ -400,8 +404,8 @@ int main() {
 
     k_msleep(1000);
 
-    ret = screen_display_image(test_img);
-    printk("screen_display_image return: %d\n", ret);
+    // ret = screen_display_image(test_img);
+    // printk("screen_display_image return: %d\n", ret);
 
     ret = mqtt_messenger_init();
     printk("mqtt_messenger_init return: %d\n", ret);
@@ -421,8 +425,16 @@ int main() {
     while (1) {
         ret = mqtt_messenger_receive(&message, K_FOREVER);
         printk("mqtt_messenger_receive return: %d\n", ret);
-        ((char *) message.buffer)[message.size - 1] = '\0';
-        printk("Topic: %s,\nMessage:\n\t%s\n", message.topic, ((char *) message.buffer));
+        // ((char *) message.buffer)[message.size - 1] = '\0';
+        printk("Recieved topic: %s\n", message.topic);
+        // printk("Topic: %s,\nMessage:\n\t%s\n", message.topic, ((char *) message.buffer));
+        if (strcmp(message.topic, "img1") == 0) {
+            screen_display_image(message.buffer);
+        }
+        k_free(message.topic);
+        message.topic = NULL;
+        k_free(message.buffer);
+        message.buffer = NULL;
     }
 
     return 0;
