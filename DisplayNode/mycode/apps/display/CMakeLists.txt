@@ -6,4 +6,6 @@ target_sources(app PRIVATE
     src/main.c
     src/mqtt_messenger.c
     src/screen_display.c
+    src/message_handler.c
+    src/synchronisation.c
 )

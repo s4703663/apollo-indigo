@@ -9,7 +9,7 @@ struct Message {
 
 int mqtt_messenger_init(void);
 
-int mqtt_messenger_subscribe(char **topics, size_t topics_count);
+int mqtt_messenger_subscribe(const char *const topics[], size_t topics_count);
 
 int mqtt_messenger_receive(struct Message *message, k_timeout_t timeout);
 
