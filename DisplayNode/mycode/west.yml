@@ -5,28 +5,31 @@
 
 manifest:
   defaults:
-    remote: upstream
+    remote: zephyrproject-rtos
 
   remotes:
-    - name: upstream
+    - name: zephyrproject-rtos
       url-base: https://github.com/zephyrproject-rtos
 
   projects:
     - name: zephyr
-      repo-path: zephyr
-      revision: main
+      remote: zephyrproject-rtos
+      revision: v3.6.0
       import:
-        name-whitelist:
+        name-allowlist:
           - cmsis
           - hal_nordic
-          - hal_stm32
+          # - hal_stm32
           - mbedtls
-          - mcuboot
-          - mcumgr
+          # - mcuboot
+          # - mcumgr
           - segger
-          - tinycbor
+          # - tinycbor
           - tinycrypt
+          - hal_espressif
+          - hal_xtensa
+          - lvgl
 
-  self:
-    path: sXXXXXXXX
-    west-commands: scripts/west-commands.yml
+  # self:
+  #   path: sXXXXXXXX
+  #   west-commands: scripts/west-commands.yml

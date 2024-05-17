@@ -1,0 +1,3 @@
+# used by the hc-sr04 sensor
+
+elecfreaks	ELECFREAKS
