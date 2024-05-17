@@ -52,6 +52,11 @@ int screen_display_init(void)
 
     display_mode = DISPLAY_MODE_OFF;
 
+    // int ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_ROTATED_180);
+    // if (ret != 0) {
+    //     LOG_ERR("Faield to set display orientation: %d", ret);
+    // }
+
     return 0;
 }
 
@@ -192,4 +197,31 @@ static void screen_thread(void *, void *, void *)
         uint32_t frame_num = tick % MAX_ANIMATION_FRAMES;
         screen_display_set_animation_frame(frame_num);
     }
+}
+
+int screen_display_set_orientation(enum Orientation orientation)
+{
+    int ret;
+    if (orientation == ORIENTATION_DOWN) {
+        ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_ROTATED_180);
+        if (ret != 0) {
+            LOG_ERR("Faield to set display orientation: %d", ret);
+            return ret;
+        }
+    } else {
+        ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_NORMAL);
+        if (ret != 0) {
+            LOG_ERR("Faield to set display orientation: %d", ret);
+            return ret;
+        }
+    }
+
+    if (display_mode == DISPLAY_MODE_IMAGE) {
+        ret = screen_display_image(image_buffer);
+        if (ret) {
+            return ret;
+        }
+    }
+
+    return 0;
 }

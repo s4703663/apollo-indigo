@@ -2,6 +2,7 @@
 #define SCREEN_DISPLAY_H
 
 #include "display_mode.h"
+#include "orientation_enum.h"
 
 #define MAX_ANIMATION_FRAMES 12
 
@@ -17,5 +18,7 @@ int screen_display_save_animation_frame(int frame_num, const void *buffer);
 int screen_display_set_mode(enum DisplayMode mode);
 
 int screen_display_set_animation_frame(int frame);
+
+int screen_display_set_orientation(enum Orientation orientation);
 
 #endif
