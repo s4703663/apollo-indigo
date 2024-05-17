@@ -11,12 +11,14 @@
 #define HEARTBEAT_TOPIC "heartbeat"
 #define IMG_TOPIC "img" STR(CONFIG_DISPLAY_DEVICE_NUMBER)
 #define ANIM_TOPIC "anim" STR(CONFIG_DISPLAY_DEVICE_NUMBER)
+#define DIST_TOPIC "distance"
 
 enum MQTTTopic {
     MQTT_MSG_MODE_TOPIC,
     MQTT_MSG_HEARBEAT_TOPIC,
     MQTT_MSG_IMG_TOPIC,
     MQTT_MSG_ANIM_TOPIC,
+    MQTT_MSG_DIST_TOPIC,
     MQTT_MSG_INVALID
 };
 
@@ -37,11 +39,16 @@ struct AnimTopicData {
     const void *buffer;
 };
 
+struct DistTopicData {
+    float distance;
+};
+
 union MsgData {
     struct ModeTopicData mode_topic_data;
     struct HeartbeatTopicData heartbeat_topic_data;
     struct ImageTopicData image_topic_data;
     struct AnimTopicData anim_topic_data;
+    struct DistTopicData dist_topic_data;
 };
 
 struct Msg {

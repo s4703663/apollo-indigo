@@ -8,4 +8,5 @@ target_sources(app PRIVATE
     src/screen_display.c
     src/message_handler.c
     src/synchronisation.c
+    src/distance.c
 )

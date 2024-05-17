@@ -549,4 +549,5 @@ int mqtt_messenger_send(const struct Message *message)
     };
 
     return mqtt_publish(&client, &param);
+    return 0;
 }

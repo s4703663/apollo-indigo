@@ -5,6 +5,10 @@
 #include "message_handler.h"
 #include "synchronisation.h"
 
+#ifdef CONFIG_SENSOR
+#include "distance.h"
+#endif
+
 // K_MEM_PARTITION_DEFINE()
 
 // const uint8_t test_img[20][60] = {
@@ -412,6 +416,9 @@ int main() {
     }
     printk("MQTT messenger initialised.\n");
 
+#ifdef CONFIG_SENSOR
+    k_thread_resume(distance_tid);
+#endif
     // struct Message message = {
     //     .topic = "MyTopic",
     //     .buffer = "Hello there",

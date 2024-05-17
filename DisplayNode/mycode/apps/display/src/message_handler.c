@@ -93,6 +93,7 @@ int message_handler_receive(struct Msg *msg, k_timeout_t timeout)
         msg->data.anim_topic_data.buffer = p + 1;
         break;
     default:
+    break;
         LOG_ERR("Received MQTT message with unknown topic: %s", message.topic);
         return 1;
     }
@@ -106,23 +107,35 @@ int message_handler_send(const struct Msg *msg)
 {
     int ret;
     struct Message message;
+    static char buf[16];
 
-    uint8_t buf[4];
-
-    // message.topic = topics[msg->topic];
-
-    switch (msg->topic) {
-    case MQTT_MSG_MODE_TOPIC:
-        buf[0] = msg->data.mode_topic_data.display_mode;
-        message.buffer = buf;
-        message.size = 1;
-        break;
-    // case MQTT_MSG_HEARBEAT_TOPIC:
-    //     // never gonna use this
-    //     return 1;
-    default:
+    if (msg->topic != MQTT_MSG_DIST_TOPIC) {
+        LOG_ERR("Only support sending distance messages");
         return 1;
     }
 
-    return 1;
+    snprintk(buf, 16, "%f", (double) msg->data.dist_topic_data.distance);
+
+    message.topic = DIST_TOPIC;
+    message.buffer = buf;
+    message.size = strlen(buf);
+
+    return mqtt_messenger_send(&message);
+
+    // message.topic = topics[msg->topic];
+
+    // switch (msg->topic) {
+    // case MQTT_MSG_MODE_TOPIC:
+    //     buf[0] = msg->data.mode_topic_data.display_mode;
+    //     message.buffer = buf;
+    //     message.size = 1;
+    //     break;
+    // // case MQTT_MSG_HEARBEAT_TOPIC:
+    // //     // never gonna use this
+    // //     return 1;
+    // default:
+    //     return 1;
+    // }
+
+    // return 1;
 }
