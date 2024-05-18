@@ -47,12 +47,12 @@ float distance_get(void)
 
 static void distance_thread(void *, void *, void *)
 {
+    k_thread_suspend(distance_tid);
+
     int ret = distance_init();
     if (ret != 0) {
         return;
     }
-
-    k_thread_suspend(distance_tid);
 
     struct Msg msg;
     msg.topic = MQTT_MSG_DIST_TOPIC;
@@ -61,7 +61,7 @@ static void distance_thread(void *, void *, void *)
         float distance = distance_get();
         msg.data.dist_topic_data.distance = distance;
         message_handler_send(&msg);
-        printk("%f\n", distance);
+        // printk("%f\n", distance);
         k_msleep(500);
     }
 }

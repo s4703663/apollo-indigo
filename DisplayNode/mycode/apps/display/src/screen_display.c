@@ -20,15 +20,18 @@ static const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display
 uint8_t buf[DISPLAY_SEG_HEIGHT][DISPLAY_BYTES_PER_ROW];
 
 static volatile enum DisplayMode display_mode;
-static volatile int frame_num;
+// static volatile int frame_num;
+static enum Orientation display_orientation;
 
 static const uint8_t *image_buffer = NULL;
 static const uint8_t *anim_buffers[MAX_ANIMATION_FRAMES] = {0};
+static const uint8_t *reverse_image_buffer = NULL;
+static const uint8_t *reverse_anim_buffers[MAX_ANIMATION_FRAMES] = {0};
 
-static void screen_thread(void *, void *, void *);
+// static void screen_thread(void *, void *, void *);
 
-K_THREAD_DEFINE(screen_tid, SCREEN_THREAD_STACK_SIZE, screen_thread, NULL, NULL, NULL,
-        SCREEN_THREAD_PRIORITY, 0, 0);
+// K_THREAD_DEFINE(screen_tid, SCREEN_THREAD_STACK_SIZE, screen_thread, NULL, NULL, NULL,
+//         SCREEN_THREAD_PRIORITY, 0, 0);
 
 int screen_display_init(void)
 {
@@ -51,6 +54,11 @@ int screen_display_init(void)
     LOG_INF("capabilities.y_resolution: %d", capabilities.y_resolution);
 
     display_mode = DISPLAY_MODE_OFF;
+
+    // int ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_ROTATED_180);
+    // if (ret != 0) {
+    //     LOG_ERR("Faield to set display orientation: %d", ret);
+    // }
 
     return 0;
 }
@@ -97,19 +105,48 @@ void screen_display_save_image(const void *buffer)
     image_buffer = buffer;
 }
 
+void screen_display_save_image_reverse(const void *buffer)
+{
+    if (reverse_image_buffer != NULL) {
+        k_free((void *) reverse_image_buffer);
+    }
+    reverse_image_buffer = buffer;
+}
+
 int screen_display_save_animation_frame(int frame_num, const void *buffer)
 {
-    if (frame_num < 0 || frame_num > MAX_ANIMATION_FRAMES) {
+    LOG_INF("Saving upright frame number: %d", frame_num);
+    if (frame_num < 0 || frame_num >= MAX_ANIMATION_FRAMES) {
         LOG_ERR("Tried to save invalid frame number: %d", frame_num);
+        k_free((uint8_t *) buffer - 1);
         return 1;
     }
 
     if (anim_buffers[frame_num] != NULL) {
         // subtract 1 because the first byte contains the frame number
-        k_free((void *) (image_buffer - 1));
+        k_free((void *) (anim_buffers[frame_num] - 1));
     }
 
     anim_buffers[frame_num] = buffer;
+
+    return 0;
+}
+
+int screen_display_save_animation_frame_reverse(int frame_num, const void *buffer)
+{
+    LOG_INF("Saving reverse frame number: %d", frame_num);
+    if (frame_num < 0 || frame_num >= MAX_ANIMATION_FRAMES) {
+        LOG_ERR("Tried to save invalid frame number: %d", frame_num);
+        k_free((uint8_t *) buffer - 1);
+        return 1;
+    }
+
+    if (reverse_anim_buffers[frame_num] != NULL) {
+        // subtract 1 because the first byte contains the frame number
+        k_free((void *) (reverse_anim_buffers[frame_num] - 1));
+    }
+
+    reverse_anim_buffers[frame_num] = buffer;
 
     return 0;
 }
@@ -118,9 +155,9 @@ int screen_display_set_mode(enum DisplayMode mode)
 {
     int ret;
 
-    if (display_mode == mode) {
-        return 0;
-    }
+    // if (display_mode == mode) {
+    //     return 0;
+    // }
 
     display_mode = mode;
 
@@ -132,13 +169,24 @@ int screen_display_set_mode(enum DisplayMode mode)
         }
         break;
     case DISPLAY_MODE_IMAGE:
-        if (image_buffer == NULL) {
-            LOG_ERR("Tried to display an image when none received");
-            return 1;
-        }
-        ret = screen_display_image(image_buffer);
-        if (ret) {
-            return ret;
+        if (display_orientation == ORIENTATION_DOWN) {
+            if (reverse_image_buffer == NULL) {
+                LOG_ERR("Tried to display reverse image when none received");
+                return 1;
+            }
+            ret = screen_display_image(reverse_image_buffer);
+            if (ret) {
+                return ret;
+            }
+        } else {
+            if (image_buffer == NULL) {
+                LOG_ERR("Tried to display upright image when none received");
+                return 1;
+            }
+            ret = screen_display_image(image_buffer);
+            if (ret) {
+                return ret;
+            }
         }
         ret = display_blanking_off(display_dev);
         if (ret) {
@@ -162,34 +210,75 @@ int screen_display_set_animation_frame(int frame)
         return 0;
     }
 
-    if (frame == frame_num) {
-        return 0;
-    }
+    // if (frame == frame_num) {
+    //     return 0;
+    // }
 
-    if (frame_num < 0 || frame_num > MAX_ANIMATION_FRAMES) {
-        LOG_ERR("Tried to set invalid frame number: %d", frame_num);
-        return 1;
-    }
+    // if (frame_num < 0 || frame_num >= MAX_ANIMATION_FRAMES) {
+    //     LOG_ERR("Tried to set invalid frame number: %d", frame_num);
+    //     return 1;
+    // }
 
-    if (anim_buffers[frame_num] == NULL) {
+    frame = frame % MAX_ANIMATION_FRAMES;
+
+    if (anim_buffers[frame] == NULL) {
         LOG_ERR("Tried to display a frame that has not been received yet");
         return 2;
     }
 
-    ret = screen_display_image(anim_buffers[frame_num]);
+    ret = screen_display_image(anim_buffers[frame]);
 
     return ret;
 }
 
 
-static void screen_thread(void *, void *, void *)
+// static void screen_thread(void *, void *, void *)
+// {
+//     int ret;
+    
+//     for (;;) {
+//         ret = k_event_wait(&tick_event, 1, true, K_FOREVER);
+//         printk("RECEIVED TICK ========================================\n");
+
+//         uint32_t frame_num = tick % MAX_ANIMATION_FRAMES;
+//         screen_display_set_animation_frame(frame_num);
+//     }
+// }
+
+int screen_display_set_orientation(enum Orientation orientation)
 {
     int ret;
-    
-    for (;;) {
-        ret = k_event_wait(&tick_event, 1, true, K_FOREVER);
-
-        uint32_t frame_num = tick % MAX_ANIMATION_FRAMES;
-        screen_display_set_animation_frame(frame_num);
+    if (orientation == ORIENTATION_DOWN) {
+        ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_ROTATED_180);
+        if (ret != 0) {
+            LOG_ERR("Faield to set display orientation: %d", ret);
+            return ret;
+        }
+        // if (display_mode == DISPLAY_MODE_IMAGE) {
+        //     // Display the reverse image
+        //     ret = screen_display_image(reverse_image_buffer);
+        //     if (ret) {
+        //         return ret;
+        //     }
+        // }
+    } else {
+        ret = display_set_orientation(display_dev, DISPLAY_ORIENTATION_NORMAL);
+        if (ret != 0) {
+            LOG_ERR("Faield to set display orientation: %d", ret);
+            return ret;
+        }
+        // if (display_mode == DISPLAY_MODE_IMAGE) {
+        //     // Display the right-side up image
+        //     ret = screen_display_image(image_buffer);
+        //     if (ret) {
+        //         return ret;
+        //     }
+        // }
     }
+
+    display_orientation = orientation;
+    // Use this to refresh screen.
+    ret = screen_display_set_mode(display_mode);
+
+    return 0;
 }

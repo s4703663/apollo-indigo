@@ -3,6 +3,7 @@
 
 #include "mqtt_messenger.h"
 #include "display_mode.h"
+#include "orientation_enum.h"
 
 #define STR2(s) #s
 #define STR(s) STR2(s)
@@ -12,6 +13,9 @@
 #define IMG_TOPIC "img" STR(CONFIG_DISPLAY_DEVICE_NUMBER)
 #define ANIM_TOPIC "anim" STR(CONFIG_DISPLAY_DEVICE_NUMBER)
 #define DIST_TOPIC "distance"
+#define ORIENT_TOPIC "orientation"
+#define REVERSE_IMG_TOPIC "img" STR(CONFIG_DISPLAY_DEVICE_REVERSED_NUMBER)
+#define REVERSE_ANIM_TOPIC "anim" STR(CONFIG_DISPLAY_DEVICE_REVERSED_NUMBER)
 
 enum MQTTTopic {
     MQTT_MSG_MODE_TOPIC,
@@ -19,6 +23,9 @@ enum MQTTTopic {
     MQTT_MSG_IMG_TOPIC,
     MQTT_MSG_ANIM_TOPIC,
     MQTT_MSG_DIST_TOPIC,
+    MQTT_MSG_ORIENT_TOPIC,
+    MQTT_MSG_REVERSE_IMG_TOPIC,
+    MQTT_MSG_REVERSE_ANIM_TOPIC,
     MQTT_MSG_INVALID
 };
 
@@ -43,12 +50,17 @@ struct DistTopicData {
     float distance;
 };
 
+struct OrientTopicData {
+    enum Orientation orientation;
+};
+
 union MsgData {
     struct ModeTopicData mode_topic_data;
     struct HeartbeatTopicData heartbeat_topic_data;
     struct ImageTopicData image_topic_data;
     struct AnimTopicData anim_topic_data;
     struct DistTopicData dist_topic_data;
+    struct OrientTopicData orient_topic_data;
 };
 
 struct Msg {

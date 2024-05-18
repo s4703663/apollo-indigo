@@ -178,13 +178,13 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             break;
         }
 
-        LOG_INF("PUBLISH packet id: %u", evt->param.publish.message_id);
+        printk("Inside MQTT_EVT_PUBLISH\n");
+
+        // LOG_INF("PUBLISH packet id: %u", evt->param.publish.message_id);
 
         // evt->param.publish.message.payload.len
         size_t topic_size = evt->param.publish.message.topic.topic.size;
         size_t payload_size = evt->param.publish.message.payload.len;
-
-        LOG_INF("PUBLISH payload length: %u", payload_size);
         // printk("PUBLISH payload length: %u\n", payload_size);
         
         struct Message message = {
@@ -203,12 +203,16 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
         memcpy(message.topic, evt->param.publish.message.topic.topic.utf8, topic_size);
         message.topic[topic_size] = '\0';
 
+        LOG_INF("PUBLISH packet id: %u, payload length: %u, topic: %s", evt->param.publish.message_id,
+                payload_size, message.topic);
+        printk("Before readall\n");
         err = mqtt_readall_publish_payload(client, message.buffer, payload_size);
         if (err < 0) {
             LOG_ERR("Failed to read publish payload: %d", err);
         }
+        printk("After readall\n");
 
-        LOG_INF("PUBLISH payload read length: %u", err);
+        // LOG_INF("PUBLISH payload read length: %u", err);
         // printk("PUBLISH payload read length: %u\n", err);
 
         if (evt->param.publish.message.topic.qos == MQTT_QOS_1_AT_LEAST_ONCE) {
@@ -229,6 +233,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             }
         }
 
+        printk("Before msgq_put\n");
         err = k_msgq_put(&receive_msgq, &message, K_NO_WAIT);
         if (err != 0) {
             k_free(message.topic);
@@ -236,6 +241,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             LOG_ERR("Failed to add received MQTT message to queue");
             break;
         }
+        printk("After msgq_put\n");
         
         // LOG_INF("Received message from topic %s:\n%s\n", evt->param.publish.message.topic.topic.utf8,
         //         payload_buffer);
@@ -509,7 +515,8 @@ int mqtt_messenger_subscribe(const char *const topics[], size_t topics_count)
                 .utf8 = (uint8_t *) topics[i], // no need to copy string
                 .size = strlen(topics[i])
             },
-            .qos = MQTT_QOS_2_EXACTLY_ONCE
+            // .qos = MQTT_QOS_2_EXACTLY_ONCE
+            .qos = MQTT_QOS_0_AT_MOST_ONCE
         };
     }
     struct mqtt_subscription_list subscription_list = {
@@ -532,7 +539,8 @@ int mqtt_messenger_send(const struct Message *message)
     struct mqtt_publish_param param = {
         .message = {
             .topic = {
-                .qos = MQTT_QOS_2_EXACTLY_ONCE,
+                // .qos = MQTT_QOS_2_EXACTLY_ONCE,
+                .qos = MQTT_QOS_0_AT_MOST_ONCE,
                 .topic = {
                     .utf8 = (uint8_t *) message->topic,
                     .size = strlen(message->topic)
