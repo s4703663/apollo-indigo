@@ -12,10 +12,10 @@ K_EVENT_DEFINE(tick_event);
 
 K_MUTEX_DEFINE(sync_mutex);
 
-static void sync_thread(void *, void *, void *);
+// static void sync_thread(void *, void *, void *);
 
-K_THREAD_DEFINE(sync_tid, SYNCHRONISATION_THREAD_STACK_SIZE, sync_thread, NULL, NULL, NULL,
-        SYNCRHONISATION_THREAD_PRIORITY, 0, 0);
+// K_THREAD_DEFINE(sync_tid, SYNCHRONISATION_THREAD_STACK_SIZE, sync_thread, NULL, NULL, NULL,
+//         SYNCRHONISATION_THREAD_PRIORITY, 0, 0);
 
 static int linear_regression(size_t n, uint32_t x[], uint32_t y[], float *m, float *c)
 {
@@ -55,30 +55,31 @@ void heartbeat_tick(uint32_t tick)
     k_mutex_unlock(&sync_mutex);
 }
 
-static void sync_thread(void *, void *, void *)
-{
-    float m, c;
-    int ret;
+// static void sync_thread(void *, void *, void *)
+// {
+//     float m, c;
+//     int ret;
 
-    for (;;) {
-        k_mutex_lock(&sync_mutex, K_FOREVER);
-        ret = linear_regression(WINDOW_SIZE, x, y, &m, &c);
-        k_mutex_unlock(&sync_mutex);
-        if (ret != 0) {
-            k_msleep(1000);
-        }
-        uint32_t next_time = m * (tick + 1) + c;
-        int32_t time_diff = next_time - k_uptime_get_32();
-        if (time_diff < 500) {
-            time_diff = 500;
-        }
-        if (time_diff > 1500) {
-            time_diff = 1500;
-        }
-        k_msleep(time_diff);
+//     for (;;) {
+//         k_mutex_lock(&sync_mutex, K_FOREVER);
+//         ret = linear_regression(WINDOW_SIZE, x, y, &m, &c);
+//         k_mutex_unlock(&sync_mutex);
+//         if (ret != 0) {
+//             k_msleep(1000);
+//         } else {
+//             uint32_t next_time = m * (tick + 1) + c;
+//             int32_t time_diff = next_time - k_uptime_get_32();
+//             if (time_diff < 500) {
+//                 time_diff = 500;
+//             }
+//             if (time_diff > 1500) {
+//                 time_diff = 1500;
+//             }
+//             k_msleep(time_diff);
+//         }
 
-        ++tick;
-        k_event_post(&tick_event, 1);
-        
-    }
-}
+//         ++tick;
+//         printk("POSTING TICK ========================================\n");
+//         k_event_post(&tick_event, 1);
+//     }
+// }

@@ -28,4 +28,10 @@ config DISPLAY_DEVICE_NUMBER
       The display number starts from 1 in the top left, 2 in the top middle,
       3 in the top right, etc. until 9 in the bottom right.
 
+config DISPLAY_DEVICE_REVERSED_NUMBER
+    int "Which display number is diagonally opposite"
+    help
+      The diagonally opposite display number is used for when the display's
+      orientation becomes flipped.
+
 source "Kconfig.zephyr"

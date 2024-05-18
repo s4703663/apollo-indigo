@@ -471,7 +471,8 @@ int main() {
             }
             break;
         case MQTT_MSG_HEARBEAT_TOPIC:
-            heartbeat_tick(msg.data.heartbeat_topic_data.tick_num);
+            // heartbeat_tick(msg.data.heartbeat_topic_data.tick_num);
+            screen_display_set_animation_frame(msg.data.heartbeat_topic_data.tick_num);
             break;
         case MQTT_MSG_IMG_TOPIC:
             screen_display_save_image(msg.data.image_topic_data.buffer);
@@ -489,6 +490,16 @@ int main() {
             ret = screen_display_set_orientation(msg.data.orient_topic_data.orientation);
             if (ret != 0) {
                 printk("Failed to set display orientation\n");
+            }
+            break;
+        case MQTT_MSG_REVERSE_IMG_TOPIC:
+            screen_display_save_image_reverse(msg.data.image_topic_data.buffer);
+            break;
+        case MQTT_MSG_REVERSE_ANIM_TOPIC:
+            ret = screen_display_save_animation_frame_reverse(msg.data.anim_topic_data.frame_num,
+                    msg.data.anim_topic_data.buffer);
+            if (ret != 0) {
+                printk("Failed to set animation frame\n");
             }
             break;
         default:
