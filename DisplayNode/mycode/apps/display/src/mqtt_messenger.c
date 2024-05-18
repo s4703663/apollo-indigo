@@ -178,7 +178,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             break;
         }
 
-        printk("Inside MQTT_EVT_PUBLISH\n");
+        // printk("Inside MQTT_EVT_PUBLISH\n");
 
         // LOG_INF("PUBLISH packet id: %u", evt->param.publish.message_id);
 
@@ -205,12 +205,12 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
 
         LOG_INF("PUBLISH packet id: %u, payload length: %u, topic: %s", evt->param.publish.message_id,
                 payload_size, message.topic);
-        printk("Before readall\n");
+        // printk("Before readall\n");
         err = mqtt_readall_publish_payload(client, message.buffer, payload_size);
         if (err < 0) {
             LOG_ERR("Failed to read publish payload: %d", err);
         }
-        printk("After readall\n");
+        // printk("After readall\n");
 
         // LOG_INF("PUBLISH payload read length: %u", err);
         // printk("PUBLISH payload read length: %u\n", err);
@@ -233,7 +233,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             }
         }
 
-        printk("Before msgq_put\n");
+        // printk("Before msgq_put\n");
         err = k_msgq_put(&receive_msgq, &message, K_NO_WAIT);
         if (err != 0) {
             k_free(message.topic);
@@ -241,7 +241,7 @@ static void mqtt_evt_handler(struct mqtt_client *const client, const struct mqtt
             LOG_ERR("Failed to add received MQTT message to queue");
             break;
         }
-        printk("After msgq_put\n");
+        // printk("After msgq_put\n");
         
         // LOG_INF("Received message from topic %s:\n%s\n", evt->param.publish.message.topic.topic.utf8,
         //         payload_buffer);

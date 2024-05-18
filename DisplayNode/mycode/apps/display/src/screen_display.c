@@ -168,6 +168,7 @@ int screen_display_set_mode(enum DisplayMode mode)
             return ret;
         }
         break;
+    case DISPLAY_MODE_DISTANCE:
     case DISPLAY_MODE_IMAGE:
         if (display_orientation == ORIENTATION_DOWN) {
             if (reverse_image_buffer == NULL) {
@@ -195,8 +196,6 @@ int screen_display_set_mode(enum DisplayMode mode)
         break;
     case DISPLAY_MODE_ANIMATION:
         break;
-    case DISPLAY_MODE_DISTANCE:
-        break;
     }
 
     return 0;
@@ -221,12 +220,21 @@ int screen_display_set_animation_frame(int frame)
 
     frame = frame % MAX_ANIMATION_FRAMES;
 
-    if (anim_buffers[frame] == NULL) {
-        LOG_ERR("Tried to display a frame that has not been received yet");
-        return 2;
-    }
+    if (display_orientation == ORIENTATION_DOWN) {
+        if (reverse_anim_buffers[frame] == NULL) {
+            LOG_ERR("Tried to display a frame that has not been received yet");
+            return 2;
+        }
 
-    ret = screen_display_image(anim_buffers[frame]);
+        ret = screen_display_image(reverse_anim_buffers[frame]);
+    } else {
+        if (anim_buffers[frame] == NULL) {
+            LOG_ERR("Tried to display a frame that has not been received yet");
+            return 2;
+        }
+
+        ret = screen_display_image(anim_buffers[frame]);
+    }
 
     return ret;
 }

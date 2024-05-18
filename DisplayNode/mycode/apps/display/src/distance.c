@@ -45,6 +45,9 @@ float distance_get(void)
     return distance;
 }
 
+// Defined in main.c
+extern volatile enum DisplayMode current_display_mode;
+
 static void distance_thread(void *, void *, void *)
 {
     k_thread_suspend(distance_tid);
@@ -60,9 +63,11 @@ static void distance_thread(void *, void *, void *)
     for (;;) {
         float distance = distance_get();
         msg.data.dist_topic_data.distance = distance;
-        message_handler_send(&msg);
+        if (current_display_mode == DISPLAY_MODE_DISTANCE) {
+            message_handler_send(&msg);
+        }
         // printk("%f\n", distance);
-        k_msleep(500);
+        k_msleep(2000);
     }
 }
 #endif

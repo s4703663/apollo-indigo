@@ -397,6 +397,8 @@ const uint8_t test_img[240][960] = {
 // };
 // size_t topics_count = sizeof(topics) / sizeof(topics[0]);
 
+volatile enum DisplayMode current_display_mode;
+
 
 int main() {
     int ret;
@@ -465,9 +467,10 @@ int main() {
 
         switch (msg.topic) {
         case MQTT_MSG_MODE_TOPIC:
+            current_display_mode = msg.data.mode_topic_data.display_mode;
             ret = screen_display_set_mode(msg.data.mode_topic_data.display_mode);
             if (ret != 0) {
-                printk("Failed to set Display Mode to %d", msg.data.mode_topic_data.display_mode);
+                printk("Failed to set Display Mode to %d\n", msg.data.mode_topic_data.display_mode);
             }
             break;
         case MQTT_MSG_HEARBEAT_TOPIC:
@@ -476,12 +479,26 @@ int main() {
             break;
         case MQTT_MSG_IMG_TOPIC:
             screen_display_save_image(msg.data.image_topic_data.buffer);
+            if (CONFIG_DISPLAY_DEVICE_NUMBER == CONFIG_DISPLAY_DEVICE_REVERSED_NUMBER) {
+                void *buffer_copy = k_malloc(DISPLAY_TOTAL_BYTES);
+                memcpy(buffer_copy, msg.data.image_topic_data.buffer, DISPLAY_TOTAL_BYTES);
+                screen_display_save_image_reverse(buffer_copy);
+            }
             break;
         case MQTT_MSG_ANIM_TOPIC:
             ret = screen_display_save_animation_frame(msg.data.anim_topic_data.frame_num,
                     msg.data.anim_topic_data.buffer);
             if (ret != 0) {
                 printk("Failed to set animation frame\n");
+            }
+            if (CONFIG_DISPLAY_DEVICE_NUMBER == CONFIG_DISPLAY_DEVICE_REVERSED_NUMBER) {
+                void *buffer_copy = k_malloc(DISPLAY_TOTAL_BYTES + 1);
+                memcpy(buffer_copy, (uint8_t *) msg.data.anim_topic_data.buffer - 1, DISPLAY_TOTAL_BYTES + 1);
+                screen_display_save_animation_frame_reverse(msg.data.anim_topic_data.frame_num,
+                        (uint8_t *) buffer_copy + 1);
+                if (ret != 0) {
+                    printk("Failed to set animation frame\n");
+                }
             }
             break;
         case MQTT_MSG_DIST_TOPIC:
