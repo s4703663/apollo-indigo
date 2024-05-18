@@ -1,139 +1,169 @@
 import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QLabel
-from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QLabel, QComboBox, QMessageBox, QLineEdit
+from PySide6.QtCore import Slot, QTimer
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
-from PIL import Image
+from PIL import Image, ImageDraw
+
+# client address
+# client = "localhost" 
+# client = "172.20.10.14"
+client = "192.168.137.1"
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Image Sender")
-        self.resize(400, 250)
+        self.setWindowTitle("GUI")
+        self.resize(400, 360)
 
         self.choose_button = QPushButton("Choose Image", self)
         self.choose_button.clicked.connect(self.choose_image)
-        self.choose_button.setGeometry(50, 50, 150, 50)
+        self.choose_button.setGeometry(50, 30, 150, 50)
 
         self.send_button = QPushButton("Send Image", self)
         self.send_button.clicked.connect(self.send_image)
-        self.send_button.setGeometry(220, 50, 150, 50)
+        self.send_button.setGeometry(220, 30, 150, 50)
 
         self.image_label = QLabel("", self)
-        self.image_label.setGeometry(50, 120, 320, 30)
+        self.image_label.setGeometry(50, 80, 320, 30)
+
+        self.choose_button = QPushButton("Choose Animation", self)
+        self.choose_button.clicked.connect(self.choose_animation)
+        self.choose_button.setGeometry(50, 130, 150, 50)
+
+        self.send_button = QPushButton("Send Animation", self)
+        self.send_button.clicked.connect(self.send_animation)
+        self.send_button.setGeometry(220, 130, 150, 50)
+
+        self.num_frames_label = QLabel("Number of Frames:", self)
+        self.num_frames_label.setGeometry(50, 190, 150, 30)
+        self.num_frames_input = QLineEdit(self)
+        self.num_frames_input.setGeometry(220, 190, 100, 30)
+
+        self.animation_label = QLabel("", self)
+        self.animation_label.setGeometry(50, 220, 320, 30)
+
+        self.mode_combo = QComboBox(self)
+        self.mode_combo.addItems(["0 display off", "1 display image", "2 display animation", "3 display distance"])
+        self.mode_combo.setGeometry(50, 270, 150, 50)
+
+        self.send_mode_button = QPushButton("Send Mode", self)
+        self.send_mode_button.clicked.connect(self.send_mode)
+        self.send_mode_button.setGeometry(220, 270, 150, 50)
 
         self.file_path = ""
         self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.mqttc.on_connect = self.on_connect
-        # self.mqttc.connect("localhost", port=1883)
-        self.mqttc.connect("172.20.10.14", port=1883)
+        self.mqttc.on_message = self.on_message
+        self.mqttc.connect(client, port=1883)
         self.mqttc.loop_start()
+        
+        self.counter = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.publish_counter)
+        self.timer.start(1000)
+
+    # def on_connect(self, client, userdata, flags, reason_code, properties):
+    #     if reason_code.is_failure:
+    #         print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
+    #     else:
+    #         print("Connected to MQTT broker")
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code.is_failure:
             print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
         else:
+            client.subscribe("distance")
             print("Connected to MQTT broker")
+
+    def on_message(self, client, userdata, message):
+        print(f"Received message with topic '{message.topic}'")
+        text = message.payload.decode()
+
+        with Image.open("black.png") as im:
+            draw = ImageDraw.Draw(im)
+            draw.text((450, 320), text, fill =(0, 0, 0))
+            
+            image = np.array(im.convert('RGB'))
+            # resize to correct ratio of display
+            image = cv2.resize(image, (960, 720))
+            # draw = ImageDraw.Draw(image)
+            # draw.text((450, 320), txt, fill =(0, 0, 0))
+            # split image into 9 equal parts
+            h, w, channels = image.shape
+            part_h = h // 3
+            part_w = w // 3
+            for row in range(3):
+                for col in range(3):
+                    part = image[row * part_h: (row + 1) * part_h, col * part_w: (col + 1) * part_w]
+                    topic = f"img{row * 3 + col + 1}"
+                    self.mqttc.publish(topic, part.tobytes(), qos=1)
+        print("Published distance")
 
     @Slot()
     def choose_image(self):
         file_dialog = QFileDialog(self)
-        file_dialog.setNameFilter("Files (*.png *.jpg *.jpeg *.gif *.mp4)")
+        file_dialog.setNameFilter("Files (*.png *.jpg *.jpeg)")
         if file_dialog.exec():
             self.file_path = file_dialog.selectedFiles()[0]
             self.image_label.setText(f"Selected Image: {self.file_path}")
+
+    def send_image(self):
+        with Image.open(self.file_path) as im:
+            image = np.array(im.convert('RGB'))
+            # resize to correct ratio of display
+            image = cv2.resize(image, (960, 720))
+            # split image into 9 equal parts
+            h, w, channels = image.shape
+            part_h = h // 3
+            part_w = w // 3
+            for row in range(3):
+                for col in range(3):
+                    part = image[row * part_h: (row + 1) * part_h, col * part_w: (col + 1) * part_w]
+                    topic = f"img{row * 3 + col + 1}"
+                    self.mqttc.publish(topic, part.tobytes(), qos=1)
+            print(f"Image of {len(image.tobytes())} bytes sent.")
+
+    @Slot()
+    def choose_animation(self):
+        file_dialog = QFileDialog(self)
+        file_dialog.setNameFilter("Files (*.gif *.mp4)")
+        if file_dialog.exec():
+            self.file_path = file_dialog.selectedFiles()[0]
+            self.animation_label.setText(f"Selected Image: {self.file_path}")
             print(f"Selected File: {self.file_path}")
 
-            # num_key_frames = 12
-            # with Image.open(self.file_path) as im:
-            #     for i in range(num_key_frames):
-            #         im.seek(im.n_frames // num_key_frames * i)
-            #         im.save('{}.jpg'.format(i))
-            # imageObject = Image.open(self.file_path)
-            # print(imageObject.n_frames)
-
-
-    # below working
-    # @Slot()
-    # def send_image(self):
-    #     if self.file_path:
-    #         with open(self.file_path, 'rb') as file:
-    #             filecontent = file.read()
-    #             byteArr = bytearray(filecontent)
-    #             img = cv2.imread(self.file_path, cv2.COLOR_BGR2RGB)
-    #             h, w, channels = img.shape
-    #             part_h = h // 3
-    #             part_w = w // 3
-                
-    #             for i in range(3):
-    #                 for j in range(3):
-    #                     part = img[i * part_h: (i + 1) * part_h, j * part_w: (j + 1) * part_w]
-    #                     # _, buffer = cv2.imencode('.jpg', part)
-    #                     # byte_array = buffer.tobytes()
-    #                     topic = f"img{i * 3 + j + 1}"  # Topics are img1 to img9
-    #                     # self.mqttc.publish(topic, bytes([0]) + byte_array, qos=1)
-
-    #                     self.mqttc.publish(topic, part.tobytes(), qos=1)
-    #                     # print(len(byte_array))
-    #             print("Image parts sent successfully.")
-    #     else:
-    #         print("Please choose an image first.")
-
-    # @Slot()
-    # def send_image(self):
-    #     num_key_frames = 12
-    #     with Image.open(self.file_path) as im:
-    #         for i in range(num_key_frames):
-    #             im.seek(im.n_frames // num_key_frames * i)
-    #             frame = np.array(im.convert('RGB'))
-    #             h, w, channels = frame.shape
-    #             part_h = h // 3
-    #             part_w = w // 3
-
-    #             for row in range(3):
-    #                 for col in range(3):
-    #                     part = frame[row * part_h: (row + 1) * part_h, col * part_w: (col + 1) * part_w]
-    #                     topic = f"img{row * 3 + col + 1}"
-    #                     self.mqttc.publish(topic, part.tobytes(), qos=1)
-    #                     print(len(part.tobytes()))
-
-    #             print(f"Frame {i} parts sent successfully.")
-
-    #         print("All frames processed.")
-    def send_image(self):
-
-        num_key_frames = 12
+    def send_animation(self):
+        # num_key_frames = 12
+        num_key_frames = int(self.num_frames_input.text()) if self.num_frames_input.text() else 12
         with Image.open(self.file_path) as im:
             for i in range(num_key_frames):
                 im.seek(im.n_frames // num_key_frames * i)
                 frame = np.array(im.convert('RGB'))
+                # resize to correct ratio of display
                 frame = cv2.resize(frame, (960, 720))
+                # split image into 9 equal parts
                 h, w, channels = frame.shape
                 part_h = h // 3
                 part_w = w // 3
-
                 for row in range(3):
                     for col in range(3):
                         part = frame[row * part_h: (row + 1) * part_h, col * part_w: (col + 1) * part_w]
-                        topic = f"img{row * 3 + col + 1}"
-                        self.mqttc.publish(topic, part.tobytes(), qos=1)
-                        print(len(part.tobytes()))
-                print(f"Frame {i} parts sent successfully.")
+                        topic = f"animation{row * 3 + col + 1}"
+                        self.mqttc.publish(topic, bytes([i]) + part.tobytes(), qos=1)
+                print(f"Frame {i+1} parts sent successfully.")
+            print(f"Animation with {num_key_frames} frames sent.")
+            
+    def send_mode(self):
+        selected_mode = self.mode_combo.currentText()
+        self.mqttc.publish("mode", selected_mode[:1], qos=1)
+        print(f"Mode {selected_mode[:1]} sent.")
 
-            print("All frames processed.")
-
-
-    # @Slot()
-    # def send_image(self):
-    #     if self.file_path:
-    #         with open(self.file_path, 'rb') as file:
-    #             filecontent = file.read()
-    #             topic = "img9"  # Topic for sending GIF
-    #             self.mqttc.publish(topic, filecontent, qos=1)
-    #             print("GIF sent successfully.")
-    #     else:
-    #         print("Please choose a GIF file first.")
+    @Slot()
+    def publish_counter(self):
+        self.counter += 1
+        self.mqttc.publish("heartbeat", str(self.counter), qos=1)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
