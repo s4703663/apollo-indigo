@@ -67,7 +67,7 @@ static void distance_thread(void *, void *, void *)
             message_handler_send(&msg);
         }
         // printk("%f\n", distance);
-        k_msleep(2000);
+        k_msleep(500);
     }
 }
 #endif

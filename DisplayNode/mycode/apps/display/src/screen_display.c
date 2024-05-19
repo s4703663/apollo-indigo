@@ -8,6 +8,7 @@ LOG_MODULE_REGISTER(screen_display, LOG_LEVEL_INF);
 
 #include "screen_display.h"
 #include "synchronisation.h"
+#include "images.h"
 
 static const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 
@@ -60,7 +61,11 @@ int screen_display_init(void)
     //     LOG_ERR("Faield to set display orientation: %d", ret);
     // }
 
-    return 0;
+    int ret = display_blanking_off(display_dev);
+    if (ret != 0) {
+        return ret;
+    }
+    return screen_display_welcome();
 }
 
 static int screen_display_image(const uint8_t *buffer)
@@ -168,7 +173,6 @@ int screen_display_set_mode(enum DisplayMode mode)
             return ret;
         }
         break;
-    case DISPLAY_MODE_DISTANCE:
     case DISPLAY_MODE_IMAGE:
         if (display_orientation == ORIENTATION_DOWN) {
             if (reverse_image_buffer == NULL) {
@@ -189,6 +193,8 @@ int screen_display_set_mode(enum DisplayMode mode)
                 return ret;
             }
         }
+        // deliberately fall through
+    case DISPLAY_MODE_DISTANCE:
         ret = display_blanking_off(display_dev);
         if (ret) {
             return ret;
@@ -289,4 +295,126 @@ int screen_display_set_orientation(enum Orientation orientation)
     ret = screen_display_set_mode(display_mode);
 
     return 0;
+}
+
+int screen_display_welcome(void)
+{
+    int ret = 0;
+
+    memcpy(buf, welcome, sizeof(welcome) / 2);
+
+    struct display_buffer_descriptor buf_desc = {
+        .buf_size = sizeof(welcome) / 2,
+        .pitch = WELCOME_WIDTH,
+        .width = WELCOME_WIDTH,
+        .height = WELCOME_HEIGHT / 2
+    };
+
+    ret = display_write(display_dev, WELCOME_X_POS, WELCOME_Y_POS, &buf_desc, buf);
+    if (ret) {
+        return ret;
+    }
+
+    memcpy(buf, (uint8_t *) welcome + sizeof(welcome) / 2, sizeof(welcome) / 2);
+
+    ret = display_write(display_dev, WELCOME_X_POS, WELCOME_Y_POS + WELCOME_HEIGHT / 2, &buf_desc, buf);
+
+    return ret;
+}
+
+int screen_display_distance(float dist)
+{
+    int ret = 0;
+    static char dist_text[32];
+
+    if (display_mode != DISPLAY_MODE_DISTANCE) {
+        return 0;
+    }
+
+    snprintk(dist_text, 32, "%f", (double) dist);
+
+    ret = screen_display_image((uint8_t *) black);
+    if (ret != 0) {
+        return ret;
+    }
+    
+    memcpy(buf, distance, sizeof(distance));
+
+    struct display_buffer_descriptor buf_desc = {
+        .buf_size = sizeof(distance),
+        .pitch = DISTANCE_WIDTH,
+        .width = DISTANCE_WIDTH,
+        .height = DISTANCE_HEIGHT
+    };
+
+    ret = display_write(display_dev, DISTANCE_X_POS, DISTANCE_Y_POS, &buf_desc, buf);
+    if (ret != 0) {
+        return ret;
+    }
+
+    // Calculate distance text images
+
+    int x = TEXT_X_POS;
+    buf_desc.buf_size = sizeof(zero);
+    buf_desc.pitch = TEXT_WIDTH;
+    buf_desc.width = TEXT_WIDTH;
+    buf_desc.height = TEXT_HEIGHT;
+
+    for (char *p = dist_text; *p; ++p) {
+        switch (*p) {
+        case '0':
+            memcpy(buf, zero, sizeof(zero));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '1':
+            memcpy(buf, one, sizeof(one));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '2':
+            memcpy(buf, two, sizeof(two));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '3':
+            memcpy(buf, three, sizeof(three));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '4':
+            memcpy(buf, four, sizeof(four));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '5':
+            memcpy(buf, five, sizeof(five));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '6':
+            memcpy(buf, six, sizeof(six));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '7':
+            memcpy(buf, seven, sizeof(seven));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '8':
+            memcpy(buf, eight, sizeof(eight));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '9':
+            memcpy(buf, nine, sizeof(nine));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        case '.':
+            memcpy(buf, dot, sizeof(dot));
+            ret = display_write(display_dev, x, TEXT_Y_POS, &buf_desc, buf);
+            break;
+        default:
+            LOG_ERR("Unexpected character '%c' in distance string", *p);
+            break;
+        }
+        if (ret != 0) {
+            return ret;
+        }
+        x += TEXT_WIDTH;
+    }
+
+    return ret;
 }

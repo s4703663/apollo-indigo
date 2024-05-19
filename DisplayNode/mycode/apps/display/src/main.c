@@ -502,7 +502,10 @@ int main() {
             }
             break;
         case MQTT_MSG_DIST_TOPIC:
-            break;
+            ret = screen_display_distance(msg.data.dist_topic_data.distance);
+            if (ret != 0) {
+                printk("Failed to display distance on screen\n");
+            }
         case MQTT_MSG_ORIENT_TOPIC:
             ret = screen_display_set_orientation(msg.data.orient_topic_data.orientation);
             if (ret != 0) {

@@ -25,4 +25,8 @@ int screen_display_set_animation_frame(int frame);
 
 int screen_display_set_orientation(enum Orientation orientation);
 
+int screen_display_welcome(void);
+
+int screen_display_distance(float dist);
+
 #endif
