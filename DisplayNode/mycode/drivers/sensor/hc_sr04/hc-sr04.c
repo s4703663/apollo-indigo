@@ -12,6 +12,8 @@ LOG_MODULE_REGISTER(hc_sr04, CONFIG_SENSOR_LOG_LEVEL);
 #define T_TRIG_PULSE_US       11
 #define T_INVALID_PULSE_US    25000
 #define T_MAX_WAIT_MS         130
+// #define T_MAX_WAIT_MS         500
+// #define T_MAX_WAIT_MS         2000
 #define T_SPURIOS_WAIT_US     145
 #define METERS_PER_SEC        340
 

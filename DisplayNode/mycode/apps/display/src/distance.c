@@ -45,14 +45,17 @@ float distance_get(void)
     return distance;
 }
 
+// Defined in main.c
+extern volatile enum DisplayMode current_display_mode;
+
 static void distance_thread(void *, void *, void *)
 {
+    k_thread_suspend(distance_tid);
+
     int ret = distance_init();
     if (ret != 0) {
         return;
     }
-
-    k_thread_suspend(distance_tid);
 
     struct Msg msg;
     msg.topic = MQTT_MSG_DIST_TOPIC;
@@ -60,8 +63,10 @@ static void distance_thread(void *, void *, void *)
     for (;;) {
         float distance = distance_get();
         msg.data.dist_topic_data.distance = distance;
-        message_handler_send(&msg);
-        printk("%f\n", distance);
+        if (current_display_mode == DISPLAY_MODE_DISTANCE) {
+            message_handler_send(&msg);
+        }
+        // printk("%f\n", distance);
         k_msleep(500);
     }
 }
