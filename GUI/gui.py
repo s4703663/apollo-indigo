@@ -4,12 +4,13 @@ from PySide6.QtCore import Slot, QTimer
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 # client address
 # client = "localhost" 
 # client = "172.20.10.14"
-client = "192.168.137.1"
+# client = "192.168.137.1"
+client = "192.168.0.100"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -64,12 +65,6 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.publish_counter)
         self.timer.start(1000)
 
-    # def on_connect(self, client, userdata, flags, reason_code, properties):
-    #     if reason_code.is_failure:
-    #         print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
-    #     else:
-    #         print("Connected to MQTT broker")
-
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code.is_failure:
             print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
@@ -79,18 +74,15 @@ class MainWindow(QMainWindow):
 
     def on_message(self, client, userdata, message):
         print(f"Received message with topic '{message.topic}'")
+        return
         text = message.payload.decode()
 
         with Image.open("black.png") as im:
             draw = ImageDraw.Draw(im)
-            draw.text((450, 320), text, fill =(0, 0, 0))
+            font = ImageFont.truetype("Roboto-Regular.ttf", 16)
+            draw.text((450, 320), text, fill =(255, 255, 255), font=font)
             
             image = np.array(im.convert('RGB'))
-            # resize to correct ratio of display
-            image = cv2.resize(image, (960, 720))
-            # draw = ImageDraw.Draw(image)
-            # draw.text((450, 320), txt, fill =(0, 0, 0))
-            # split image into 9 equal parts
             h, w, channels = image.shape
             part_h = h // 3
             part_w = w // 3
@@ -136,7 +128,7 @@ class MainWindow(QMainWindow):
 
     def send_animation(self):
         # num_key_frames = 12
-        num_key_frames = int(self.num_frames_input.text()) if self.num_frames_input.text() else 12
+        num_key_frames = int(self.num_frames_input.text()) if self.num_frames_input.text() else 6
         with Image.open(self.file_path) as im:
             for i in range(num_key_frames):
                 im.seek(im.n_frames // num_key_frames * i)
@@ -150,7 +142,7 @@ class MainWindow(QMainWindow):
                 for row in range(3):
                     for col in range(3):
                         part = frame[row * part_h: (row + 1) * part_h, col * part_w: (col + 1) * part_w]
-                        topic = f"animation{row * 3 + col + 1}"
+                        topic = f"anim{row * 3 + col + 1}"
                         self.mqttc.publish(topic, bytes([i]) + part.tobytes(), qos=1)
                 print(f"Frame {i+1} parts sent successfully.")
             print(f"Animation with {num_key_frames} frames sent.")
