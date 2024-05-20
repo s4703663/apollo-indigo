@@ -52,7 +52,7 @@ Mkfile.old
 dkms.conf
 
 #exclude zephyr directory
-zephyr/
+DisplayNode/zephyr/
 build/
 bootloader/
 modules/
